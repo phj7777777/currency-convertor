@@ -1,6 +1,7 @@
 package com.example.convertor.helper
 import com.example.convertor.model.Rate
 import com.google.gson.GsonBuilder
+import com.example.convertor.Result
 import okhttp3.*
 import java.io.IOException
 
@@ -8,7 +9,7 @@ import java.io.IOException
 
 private val client = OkHttpClient()
 
-fun getRequest(url: String, result: com.example.convertor.Result){
+fun getRequest(url: String, result: Result){
     val request = Request.Builder()
         .url(url)
         .build()

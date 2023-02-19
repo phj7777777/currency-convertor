@@ -10,6 +10,8 @@ import androidx.compose.material.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Send
 import androidx.compose.runtime.*
+import androidx.compose.runtime.livedata.observeAsState
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.input.KeyboardType
@@ -17,9 +19,9 @@ import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 import com.example.convertor.helper.*
 import com.example.convertor.model.Rate
-import com.example.convertor.model.RatePair
-import com.example.convertor.src.SwipeBox
+import com.example.convertor.src.CurrencyBox
 import com.example.convertor.ui.theme.ConvertorTheme
+import com.example.convertor.view_model.MainViewModel
 
 
 interface Result {
@@ -29,32 +31,20 @@ interface Result {
 
 class MainActivity : ComponentActivity() {
 
-    // Set SGD 1 as default base code so there's something display initially
-    var baseCode = "SGD"
-    var values = 1.00
-
-
     override fun onCreate(savedInstanceState: Bundle?) {
-
         super.onCreate(savedInstanceState)
-
-        // callback function to get rate from API
-        getRequest(getRateUrl(baseCode),object : Result {
-            override fun getResult(rate: Rate?) {
-                setContent {
-                    MainScaffold(false, supportedCurrency, rate)
-                }
-            }
-        })
-
+        val viewModel = MainViewModel()
+        viewModel.getCurrencyRate(this)
         setContent {
-            MainScaffold(isLoading = true, supportedCurrency, null)
+            MainScaffold(false, viewModel.supportedCurrency, viewModel)
         }
     }
 
 
     @Composable
-    fun MainScaffold(isLoading: Boolean, supportedCurrency: Array<String>, rate: Rate?) {
+    fun MainScaffold(isLoading: Boolean, supportedCurrency: Array<String>, viewModel: MainViewModel) {
+        val rates = viewModel.rates.observeAsState().value
+        
         ConvertorTheme {
             Surface(
                 modifier = Modifier.fillMaxSize(),
@@ -65,10 +55,14 @@ class MainActivity : ComponentActivity() {
                         TopBar()
                     },
                     content = {
-                        if (!isLoading && rate != null) {
-                            CurrentListing(rate, supportedCurrency)
+                        if (!isLoading && rates != null) {
+                                CurrentListing(rates, supportedCurrency, viewModel )
                         } else {
-                            Text("Loading")
+                            Column(
+                                modifier = Modifier.fillMaxSize(),
+                                verticalArrangement = Arrangement.Center,
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                            ) {Text("Loading...")}
                         }
 
                     }
@@ -86,21 +80,23 @@ class MainActivity : ComponentActivity() {
     }
 
     @Composable
-    fun CurrentListing(rate: Rate, supportedCurrency: Array<String>) {
+    fun CurrentListing(rate: Rate?, supportedCurrency: Array<String>, viewModel: MainViewModel) {
 
         Column(
             verticalArrangement = Arrangement.SpaceBetween,
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
         ) {
-            Header(rate.time_last_update_unix)
+            Header(rate?.time_last_update_unix, viewModel)
             LazyColumn(
             ) {
                 items(count = supportedCurrency.size) { index ->
-                    val currency = supportedCurrency[index % supportedCurrency.size]
+                    val currency = supportedCurrency[index]
 
                     // Do not display the listItem if base code is itself
                     if(currency != rate?.base_code){
-                        SwipeBox(rate, currency, values)
+                        if (rate != null) {
+                            CurrencyBox(rate, currency, viewModel.values)
+                        }
                     }
 
                 }
@@ -109,26 +105,27 @@ class MainActivity : ComponentActivity() {
     }
 
     @Composable
-    fun Header(timeLastUpdateUtc: String) {
+    fun Header(timeLastUpdateUtc: String?, viewModel: MainViewModel) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(vertical = 16.dp)
         ) {
-            Row {
-                Modifier.padding(vertical = 16.dp)
-                Text("Last updated: ${getDateTime(timeLastUpdateUtc)}")
+            if(timeLastUpdateUtc != null) {
+                Row {
+                    Modifier.padding(vertical = 16.dp)
+                    Text("Last updated: ${getDateTime(timeLastUpdateUtc)}")
+                }
             }
-            TextFieldRow()
-
+            TextFieldRow(viewModel)
         }
     }
 
     @Composable
-    fun TextFieldRow() {
+    fun TextFieldRow(viewModel: MainViewModel) {
 
-        var currency by remember { mutableStateOf(TextFieldValue(baseCode)) }
-        var value by remember { mutableStateOf(TextFieldValue(values.toString())) }
+        var currency by remember { mutableStateOf(TextFieldValue(viewModel.baseCode)) }
+        var value by remember { mutableStateOf(TextFieldValue(roundOffToString(viewModel.values))) }
 
         @Composable
         fun PriceTextField() {
@@ -138,7 +135,7 @@ class MainActivity : ComponentActivity() {
                 onValueChange = {
                     value = it
                 },
-                placeholder = { Text(text = values.toString()) },
+                placeholder = { Text(text = "1.00")},
                 label = { Text(text = "Value") },
                 colors = TextFieldDefaults.textFieldColors(
                     backgroundColor = Color.White
@@ -160,11 +157,14 @@ class MainActivity : ComponentActivity() {
                 colors = TextFieldDefaults.textFieldColors(
                     backgroundColor = Color.White
                 ),
-                placeholder = { Text(text = baseCode.toString()) },
+                placeholder = { Text(text = viewModel.baseCode) },
             )
         }
 
-        Row(Modifier.fillMaxWidth().padding(vertical = 16.dp), horizontalArrangement = Arrangement.SpaceBetween) {
+        Row(
+            Modifier
+                .fillMaxWidth()
+                .padding(vertical = 16.dp), horizontalArrangement = Arrangement.SpaceBetween) {
             Box(modifier = Modifier.weight(1f)) {
                 CurrencyTextField()
             }
@@ -174,27 +174,10 @@ class MainActivity : ComponentActivity() {
             }
             Box(modifier = Modifier.padding(16.dp)) {
                 IconButton(content = { Icon(Icons.Rounded.Send, "Send") }, onClick = {
-
-                    if(RatePair().get(currency.text) == 0) {
-                        toast(this@MainActivity, "Sorry, we are unable to support this currency: ${currency.text}")
+                    val res = viewModel.sendRequest(this@MainActivity, currency.text, value.text.toDoubleOrNull())
+                    if(res){
+                      viewModel.getCurrencyRate(this@MainActivity)
                     }
-                    else if(value.text.toDoubleOrNull() == null){
-                        toast(this@MainActivity, "Please ensure value input correctly")
-                    }else{
-                        baseCode = currency.text
-                        values = value.text.toDouble()
-                        toast(this@MainActivity, "Refresh successfully")
-                        // Refresh List
-                        getRequest(getRateUrl(baseCode),object : Result {
-                            override fun getResult(rate: Rate?) {
-                                setContent {
-                                    MainScaffold(false, supportedCurrency, rate)
-                                }
-
-                            }
-                        })
-                    }
-
 
                 })
             }

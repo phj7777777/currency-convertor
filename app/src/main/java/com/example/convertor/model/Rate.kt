@@ -1,7 +1,5 @@
 package com.example.convertor.model
 
-import java.util.Objects
-
 open class Rate(
     val time_last_update_unix: String,
     val base_code: String,
@@ -26,7 +24,7 @@ class RatePair(
     val VND: Double = 0.00,
 
     ) {
-    fun get(c: String): Any {
+    fun get(c: String): Double {
         if(c == "USD") return USD
         if(c == "ARS") return ARS
         if(c == "EUR") return EUR
@@ -40,9 +38,7 @@ class RatePair(
         if(c == "THB") return THB
         if(c == "TWD") return TWD
         if(c == "VND") return VND
-
-        return 0
-
+        return -1.0
     }
 }
 

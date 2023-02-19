@@ -11,8 +11,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.dp
 import com.example.convertor.ui.theme.Shapes
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Close
 import androidx.compose.runtime.*
 import coil.compose.rememberAsyncImagePainter
 import com.example.convertor.helper.getCurrencyValue
@@ -24,7 +22,7 @@ import java.util.*
 
 @OptIn(ExperimentalMaterialApi::class)
 @Composable
-fun SwipeBox(rate: Rate, currency: String, value: Double) {
+fun CurrencyBox(rate: Rate, currency: String, value: Double) {
 
     Card(
         border = BorderStroke(1.dp, GrayLight),
@@ -38,7 +36,7 @@ fun SwipeBox(rate: Rate, currency: String, value: Double) {
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            _frontComponent(currency)
+            FrontComponent(currency)
             EndComponent(rate, currency, value)
         }
 
@@ -46,7 +44,7 @@ fun SwipeBox(rate: Rate, currency: String, value: Double) {
 }
 
 @Composable
-fun _frontComponent(currency: String) {
+fun FrontComponent(currency: String) {
     Row(
         modifier = Modifier.padding(8.dp),
         horizontalArrangement = Arrangement.spacedBy(16.dp),
@@ -74,7 +72,7 @@ fun EndComponent(rate: Rate, currency: String, value: Double) {
         ) {
             Text(text = getCurrencyValue(rate, currency, value))
             Text(
-                text = "1 ${rate.base_code} = ${rate.conversion_rates.get(currency)} $currency",
+                text = "1 ${rate.base_code} =  ${getCurrencyValue(rate, currency, 1.00)}",
                 style = MaterialTheme.typography.caption
             )
         }
