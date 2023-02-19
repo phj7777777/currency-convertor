@@ -36,13 +36,13 @@ class MainActivity : ComponentActivity() {
         val viewModel = MainViewModel()
         viewModel.getCurrencyRate(this)
         setContent {
-            MainScaffold(false, viewModel.supportedCurrency, viewModel)
+            MainScaffold(viewModel.supportedCurrency, viewModel)
         }
     }
 
 
     @Composable
-    fun MainScaffold(isLoading: Boolean, supportedCurrency: Array<String>, viewModel: MainViewModel) {
+    fun MainScaffold(supportedCurrency: Array<String>, viewModel: MainViewModel) {
         val rates = viewModel.rates.observeAsState().value
         
         ConvertorTheme {
@@ -55,7 +55,7 @@ class MainActivity : ComponentActivity() {
                         TopBar()
                     },
                     content = {
-                        if (!isLoading && rates != null) {
+                        if (rates != null) {
                                 CurrentListing(rates, supportedCurrency, viewModel )
                         } else {
                             Column(
